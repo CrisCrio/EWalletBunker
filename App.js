@@ -1,7 +1,10 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, StyleSheet } from 'react-native';
-import WalletScreen from './src/Screens/WalletScreen'; // Ruta exacta según tus carpetas
+
+import WalletScreen from './src/Screens/WalletScreen';
+import { faker } from '@faker-js/faker';
+
 
 export default function App() {
   return (
@@ -15,6 +18,6 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a', // Fondo oscuro para ADSO-Pay
+    backgroundColor: '#0f172a',
   },
 });
