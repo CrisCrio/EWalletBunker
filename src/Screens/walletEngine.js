@@ -5,13 +5,26 @@ import { faker } from '@faker-js/faker/locale/es';
 export function generateTransactionHistory(count) {
   const transactions = [];
   for (let i = 0; i < count; i++) {
+    const status = faker.helpers.arrayElement(['Completado', 'Pendiente', 'Rechazado']);
+    const type   = faker.helpers.arrayElement(['Ingreso', 'Retiro']);
+    const amount = parseFloat(
+      faker.number.float({ min: 10000, max: 500000, fractionDigits: 2 })
+    );
+
+    // ── CASHBACK: 1% si es Completado, monto > 50.000; 0 en cualquier otro caso ──
+    const puntosADSO =
+      status === 'Completado' && amount > 50000
+        ? parseFloat((amount * 0.01).toFixed(2))
+        : 0;
+
     transactions.push({
       id: faker.string.uuid(),
       accountNumber: faker.finance.accountNumber(),
-      type: faker.helpers.arrayElement(['Ingreso', 'Retiro']),
-      amount: parseFloat(faker.number.float({ min: 10000, max: 500000, fractionDigits: 2 })),
+      type,
+      amount,
       date: faker.date.recent({ days: 30 }),
-      status: faker.helpers.arrayElement(['Completado', 'Pendiente', 'Rechazado']),
+      status,
+      puntosADSO,
     });
   }
   return transactions;
@@ -26,6 +39,18 @@ export function calculateNetBalance(transactions) {
       if (tx.type === 'Retiro')  return balance - tx.amount;
     }
     return balance;
+  }, 0);
+}
+
+// ─── PUNTOS ADSO ACUMULADOS ───────────────────────────────────────────────────
+
+export function calcularPuntosADSO(transactions) {
+  return transactions.reduce((total, tx) => {
+    const puntos =
+      tx.status === 'Completado' && tx.amount > 50000
+        ? parseFloat((tx.amount * 0.01).toFixed(2))
+        : 0;
+    return parseFloat((total + puntos).toFixed(2));
   }, 0);
 }
 
