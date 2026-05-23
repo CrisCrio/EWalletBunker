@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: ewallet_bunker_app
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - "8082:8081"
+    environment:
+      - NODE_ENV=development
+      - REACT_NATIVE_PACKAGER_HOSTNAME=192.168.1.16
+    command: sh -c "npm run test && npm run start"
