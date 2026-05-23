@@ -1,8 +1,10 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, StyleSheet } from 'react-native';
+
 import WalletScreen from './src/Screens/WalletScreen';
 import { faker } from '@faker-js/faker';
+
 
 export default function App() {
   return (
