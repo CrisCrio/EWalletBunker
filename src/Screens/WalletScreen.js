@@ -3,7 +3,13 @@ import {
   StyleSheet, Text, View, FlatList, TouchableOpacity,
   SafeAreaView, TextInput, Modal,
 } from 'react-native';
-import { generateTransactionHistory, calculateNetBalance, comprarUSDT, generarTasaCambio } from './walletEngine';
+import {
+  generateTransactionHistory,
+  calculateNetBalance,
+  comprarUSDT,
+  generarTasaCambio,
+  calcularPuntosADSO,
+} from './walletEngine';
 
 const formatCOP = (value) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value);
@@ -18,6 +24,9 @@ function USDTModal({ visible, saldoCOP, onClose, onSuccess }) {
   const [resultado, setResultado] = useState(null);
   const [tasaVista, setTasaVista] = useState(() => generarTasaCambio());
   const [loading, setLoading] = useState(false);
+
+  // ✅ BUG CORREGIDO: eliminado el useMemo de puntosADSO que estaba aquí
+  //    (allTransactions no existe en este componente)
 
   const refreshTasa = useCallback(() => {
     setTasaVista(generarTasaCambio());
@@ -283,6 +292,10 @@ export default function WalletScreen() {
 
   const totalBalance = useMemo(() => calculateNetBalance(allTransactions), [allTransactions]);
 
+  // ✅ BUG CORREGIDO: puntosADSO ahora está declarado aquí en WalletScreen
+  //    donde allTransactions sí existe
+  const puntosADSO = useMemo(() => calcularPuntosADSO(allTransactions), [allTransactions]);
+
   const filteredTransactions = useMemo(() => {
     if (filter === 'Todos') return allTransactions;
     return allTransactions.filter(tx => tx.type === filter);
@@ -297,6 +310,7 @@ export default function WalletScreen() {
       date: new Date(),
       status: 'Completado',
       nota: 'Recarga manual de saldo',
+      puntosADSO: valor > 50000 ? parseFloat((valor * 0.01).toFixed(2)) : 0,
     };
     setAllTransactions(prev => [creditTx, ...prev]);
   }, []);
@@ -310,6 +324,9 @@ export default function WalletScreen() {
       date: new Date(),
       status: 'Completado',
       nota: `Compra USDT @ ${resultado.tasa}`,
+      puntosADSO: resultado.montoCOPUsado > 50000
+        ? parseFloat((resultado.montoCOPUsado * 0.01).toFixed(2))
+        : 0,
     };
     setAllTransactions(prev => [debitTx, ...prev]);
     setUsdtBalance(prev => parseFloat((prev + resultado.usdt).toFixed(6)));
@@ -336,6 +353,11 @@ export default function WalletScreen() {
           <Text style={styles.dateText}>{new Date(item.date).toLocaleDateString('es-CO')}</Text>
         </View>
         {item.nota && <Text style={styles.notaText}>{item.nota}</Text>}
+        {item.puntosADSO > 0 && (
+          <Text style={styles.puntosText}>
+            ★ +{item.puntosADSO.toLocaleString('es-CO')} pts ADSO
+          </Text>
+        )}
       </View>
     );
   };
@@ -354,7 +376,17 @@ export default function WalletScreen() {
           </View>
         )}
 
-        {/* ── BOTONES DE ACCIÓN ── */}
+        {puntosADSO > 0 && (
+          <View style={styles.adsoRow}>
+            <View style={styles.adsoPill}>
+              <Text style={styles.adsoPillText}>
+                ★ {puntosADSO.toLocaleString('es-CO')} Puntos ADSO
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Botones de acción */}
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={styles.recargarBtn}
@@ -403,7 +435,7 @@ export default function WalletScreen() {
         contentContainerStyle={styles.listContainer}
       />
 
-      {/* Modal USDT */}
+      {/* Modales */}
       <USDTModal
         visible={showModal}
         saldoCOP={totalBalance}
@@ -416,6 +448,7 @@ export default function WalletScreen() {
         onClose={() => setShowRecargar(false)}
         onSuccess={handleRecargarSuccess}
       />
+
     </SafeAreaView>
   );
 }
@@ -439,11 +472,13 @@ const styles = StyleSheet.create({
   },
   usdtPillText: { color: '#26d97f', fontWeight: '700', fontSize: 13 },
 
-  buyUSDTBtn: {
-    flex: 1, backgroundColor: '#26d97f', borderRadius: 12,
-    paddingVertical: 14, alignItems: 'center',
+  adsoRow: { marginTop: 8 },
+  adsoPill: {
+    backgroundColor: '#2d1a6e', borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 6,
+    borderWidth: 1, borderColor: '#7c3aed55',
   },
-  buyUSDTBtnText: { color: '#0f172a', fontWeight: '800', fontSize: 14 },
+  adsoPillText: { color: '#a78bfa', fontWeight: '700', fontSize: 13 },
 
   actionRow: {
     flexDirection: 'row', gap: 10, marginTop: 16, width: '100%',
@@ -453,6 +488,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center',
   },
   recargarBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 14 },
+
+  buyUSDTBtn: {
+    flex: 1, backgroundColor: '#26d97f', borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center',
+  },
+  buyUSDTBtnText: { color: '#0f172a', fontWeight: '800', fontSize: 14 },
 
   filterContainer: {
     flexDirection: 'row', justifyContent: 'space-around',
@@ -479,6 +520,10 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 12, color: '#64748b' },
   dateText: { fontSize: 12, color: '#94a3b8' },
   notaText: { fontSize: 11, color: '#059669', marginTop: 4, fontStyle: 'italic' },
+  puntosText: {
+    fontSize: 11, color: '#7c3aed',
+    marginTop: 4, fontStyle: 'italic', fontWeight: '600',
+  },
 });
 
 const modal = StyleSheet.create({
