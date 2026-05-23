@@ -4,16 +4,12 @@ services:
   app:
     build: .
     container_name: ewallet_bunker_app
-    tty: true
-    stdin_open: true
     volumes:
       - .:/app
       - /app/node_modules
     ports:
-      - "8081:8081"
-      - "19000:19000"
-      - "19001:19001"
+      - "8082:8081"
     environment:
       - NODE_ENV=development
-      - CI=false
-    command: sh -c "npm run test && npx expo start --tunnel"
+      - REACT_NATIVE_PACKAGER_HOSTNAME=192.168.1.16
+    command: sh -c "npm run test && npm run start"

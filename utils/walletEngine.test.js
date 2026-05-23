@@ -1,6 +1,5 @@
-// Subimos un nivel con '../' para encontrar el walletEngine en la raíz
-const { generateTransactionHistory, calculateNetBalance } = require('../walletEngine');
-
+// Salimos de 'utils' con '../', entramos a 'src/Screens/' y cargamos el walletEngine
+const { generateTransactionHistory, calculateNetBalance } = require('../src/Screens/walletEngine');
 describe('Pruebas Unitarias del Motor Financiero (WalletEngine)', () => {
   
   test('1. Si pido 50 transacciones, el array debe tener exactamente longitud 50', () => {
