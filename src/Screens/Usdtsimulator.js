@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   StyleSheet, Text, View, FlatList, TouchableOpacity,
-  SafeAreaView, TextInput, Modal,
+  SafeAreaView, TextInput, Modal, Animated, ScrollView
 } from 'react-native';
 import { generateTransactionHistory, calculateNetBalance, comprarUSDT, generarTasaCambio } from './walletEngine';
 
@@ -11,7 +11,7 @@ const formatCOP = (value) =>
 const formatUSDT = (value) =>
   `${parseFloat(value).toFixed(6)} USDT`;
 
-// ─── MODAL DE COMPRA USDT ─────────────────────────────────────────────────────
+// ─── USDT PURCHASE MODAL ─────────────────────────────────────────────────────
 
 function USDTModal({ visible, saldoCOP, onClose, onSuccess }) {
   const [montoCOP, setMontoCOP] = useState('');
@@ -63,7 +63,6 @@ function USDTModal({ visible, saldoCOP, onClose, onSuccess }) {
       <View style={modal.overlay}>
         <View style={modal.sheet}>
 
-          {/* Header */}
           <View style={modal.header}>
             <View style={modal.usdtBadge}>
               <Text style={modal.usdtBadgeText}>₮</Text>
@@ -80,8 +79,10 @@ function USDTModal({ visible, saldoCOP, onClose, onSuccess }) {
           {/* Tasa de cambio */}
           <View style={modal.rateCard}>
             <View style={{ flex: 1 }}>
-              <Text style={modal.rateLabel}>TASA ACTUAL SIMULADA</Text>
-              <Text style={modal.rateValue}>1 USDT = {formatCOP(tasaVista)}</Text>
+              <Text style={modal.rateLabel}>Tasa actual simulada</Text>
+              <Text style={modal.rateValue}>
+                1 USDT = {formatCOP(tasaVista)}
+              </Text>
             </View>
             <TouchableOpacity onPress={refreshTasa} style={modal.refreshBtn}>
               <Text style={modal.refreshBtnText}>↻ Actualizar</Text>
@@ -96,7 +97,7 @@ function USDTModal({ visible, saldoCOP, onClose, onSuccess }) {
             </Text>
           </View>
 
-          {/* Input */}
+          {/* Input monto */}
           <View style={modal.inputGroup}>
             <Text style={modal.inputLabel}>Monto en pesos (COP)</Text>
             <View style={modal.inputRow}>
@@ -139,14 +140,13 @@ function USDTModal({ visible, saldoCOP, onClose, onSuccess }) {
             </View>
           )}
 
-          {/* Botón comprar */}
           <TouchableOpacity
-            style={[modal.buyBtn, (loading || !montoCOP) && modal.buyBtnDisabled]}
+            style={[modal.buyBtn, loading && modal.buyBtnLoading]}
             onPress={handleComprar}
             disabled={loading || !montoCOP}
           >
             <Text style={modal.buyBtnText}>
-              {loading ? 'Procesando...' : 'Comprar USDT'}
+              {loading ? 'Procesando...' : `Comprar USDT`}
             </Text>
           </TouchableOpacity>
 
@@ -156,129 +156,12 @@ function USDTModal({ visible, saldoCOP, onClose, onSuccess }) {
   );
 }
 
-// ─── MODAL DE RECARGA ────────────────────────────────────────────────────────
-
-const MONTOS_RAPIDOS = [50000, 100000, 200000, 500000, 1000000];
-
-function RecargarModal({ visible, onClose, onSuccess }) {
-  const [monto, setMonto] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [confirmado, setConfirmado] = useState(false);
-
-  const handleClose = useCallback(() => {
-    setMonto('');
-    setConfirmado(false);
-    onClose();
-  }, [onClose]);
-
-  const handleRecargar = useCallback(() => {
-    const valor = parseFloat(monto.replace(/\./g, '').replace(',', '.'));
-    if (isNaN(valor) || valor <= 0) return;
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setConfirmado(true);
-      onSuccess(valor);
-      setTimeout(handleClose, 1600);
-    }, 700);
-  }, [monto, onSuccess, handleClose]);
-
-  const valorNumerico = parseFloat(monto.replace(/\./g, '').replace(',', '.'));
-  const montoValido = !isNaN(valorNumerico) && valorNumerico >= 10000;
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={modal.overlay}>
-        <View style={modal.sheet}>
-
-          <View style={modal.header}>
-            <View style={[modal.usdtBadge, { backgroundColor: '#3b82f6' }]}>
-              <Text style={modal.usdtBadgeText}>+</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={modal.title}>Recargar saldo</Text>
-              <Text style={modal.subtitle}>Agrega pesos colombianos a tu cuenta</Text>
-            </View>
-            <TouchableOpacity onPress={handleClose} style={modal.closeBtn}>
-              <Text style={modal.closeBtnText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Montos rápidos */}
-          <Text style={[modal.rateLabel, { marginBottom: 8 }]}>MONTOS RÁPIDOS</Text>
-          <View style={recargar.quickRow}>
-            {MONTOS_RAPIDOS.map((m) => (
-              <TouchableOpacity
-                key={m}
-                style={[recargar.quickBtn, monto === String(m) && recargar.quickBtnActive]}
-                onPress={() => setMonto(String(m))}
-              >
-                <Text style={[recargar.quickBtnText, monto === String(m) && recargar.quickBtnTextActive]}>
-                  {m >= 1000000 ? `$${m / 1000000}M` : `$${m / 1000}K`}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Input manual */}
-          <View style={modal.inputGroup}>
-            <Text style={modal.inputLabel}>O ingresa un monto personalizado</Text>
-            <View style={modal.inputRow}>
-              <Text style={modal.currencyPrefix}>$</Text>
-              <TextInput
-                style={modal.input}
-                value={monto}
-                onChangeText={setMonto}
-                placeholder="Ej: 300000"
-                placeholderTextColor="#64748b"
-                keyboardType="numeric"
-              />
-            </View>
-            {monto !== '' && !montoValido && (
-              <Text style={recargar.hint}>Mínimo $10.000 COP</Text>
-            )}
-          </View>
-
-          {/* Preview */}
-          {montoValido && !confirmado && (
-            <View style={[modal.previewRow, { backgroundColor: '#eff6ff' }]}>
-              <Text style={[modal.previewLabel, { color: '#1d4ed8' }]}>Se acreditará en tu saldo:</Text>
-              <Text style={[modal.previewValue, { color: '#1e40af' }]}>{formatCOP(valorNumerico)}</Text>
-            </View>
-          )}
-
-          {/* Confirmación */}
-          {confirmado && (
-            <View style={modal.resultCard}>
-              <Text style={[modal.resultTitle, { color: '#1d4ed8' }]}>✓ Recarga exitosa</Text>
-              <Text style={modal.resultDetail}>Se acreditó {formatCOP(valorNumerico)} a tu saldo</Text>
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={[recargar.recargarBtn, (!montoValido || loading) && recargar.recargarBtnDisabled]}
-            onPress={handleRecargar}
-            disabled={!montoValido || loading}
-            activeOpacity={0.85}
-          >
-            <Text style={recargar.recargarBtnText}>
-              {loading ? 'Procesando...' : '+ Recargar ahora'}
-            </Text>
-          </TouchableOpacity>
-
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-// ─── PANTALLA PRINCIPAL ───────────────────────────────────────────────────────
+// ─── MAIN WALLET SCREEN ───────────────────────────────────────────────────────
 
 export default function WalletScreen() {
   const [allTransactions, setAllTransactions] = useState(() => generateTransactionHistory(250));
   const [filter, setFilter] = useState('Todos');
   const [showModal, setShowModal] = useState(false);
-  const [showRecargar, setShowRecargar] = useState(false);
   const [usdtBalance, setUsdtBalance] = useState(0);
 
   const totalBalance = useMemo(() => calculateNetBalance(allTransactions), [allTransactions]);
@@ -287,19 +170,6 @@ export default function WalletScreen() {
     if (filter === 'Todos') return allTransactions;
     return allTransactions.filter(tx => tx.type === filter);
   }, [filter, allTransactions]);
-
-  const handleRecargarSuccess = useCallback((valor) => {
-    const creditTx = {
-      id: `recarga-${Date.now()}`,
-      accountNumber: 'RECARGA-COP',
-      type: 'Ingreso',
-      amount: valor,
-      date: new Date(),
-      status: 'Completado',
-      nota: 'Recarga manual de saldo',
-    };
-    setAllTransactions(prev => [creditTx, ...prev]);
-  }, []);
 
   const handleUSDTSuccess = useCallback((resultado) => {
     const debitTx = {
@@ -335,7 +205,9 @@ export default function WalletScreen() {
           <Text style={styles.statusText}>Estado: {item.status}</Text>
           <Text style={styles.dateText}>{new Date(item.date).toLocaleDateString('es-CO')}</Text>
         </View>
-        {item.nota && <Text style={styles.notaText}>{item.nota}</Text>}
+        {item.nota && (
+          <Text style={styles.notaText}>{item.nota}</Text>
+        )}
       </View>
     );
   };
@@ -343,37 +215,25 @@ export default function WalletScreen() {
   return (
     <SafeAreaView style={styles.container}>
 
-      {/* Tarjeta de saldo */}
+      {/* ── Balance principal ── */}
       <View style={styles.balanceContainer}>
         <Text style={styles.balanceLabel}>Saldo Neto Total</Text>
         <Text style={styles.balanceValue}>{formatCOP(totalBalance)}</Text>
 
         {usdtBalance > 0 && (
-          <View style={styles.usdtPill}>
-            <Text style={styles.usdtPillText}>₮ {usdtBalance.toFixed(6)} USDT</Text>
+          <View style={styles.usdtBalanceRow}>
+            <View style={styles.usdtPill}>
+              <Text style={styles.usdtPillText}>₮ {usdtBalance.toFixed(6)} USDT</Text>
+            </View>
           </View>
         )}
 
-        {/* ── BOTONES DE ACCIÓN ── */}
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={styles.recargarBtn}
-            onPress={() => setShowRecargar(true)}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.recargarBtnText}>+ Recargar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.buyUSDTBtn}
-            onPress={() => setShowModal(true)}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.buyUSDTBtnText}>💵 Comprar USDT</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.buyUSDTBtn} onPress={() => setShowModal(true)}>
+          <Text style={styles.buyUSDTBtnText}>Comprar Dólares Digitales (USDT)</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Filtros */}
+      {/* ── Filtros ── */}
       <View style={styles.filterContainer}>
         {['Todos', 'Ingreso', 'Retiro'].map((f) => (
           <TouchableOpacity
@@ -391,7 +251,6 @@ export default function WalletScreen() {
         ))}
       </View>
 
-      {/* Lista */}
       <FlatList
         data={filteredTransactions}
         keyExtractor={(item) => item.id}
@@ -403,24 +262,17 @@ export default function WalletScreen() {
         contentContainerStyle={styles.listContainer}
       />
 
-      {/* Modal USDT */}
       <USDTModal
         visible={showModal}
         saldoCOP={totalBalance}
         onClose={() => setShowModal(false)}
         onSuccess={handleUSDTSuccess}
       />
-
-      <RecargarModal
-        visible={showRecargar}
-        onClose={() => setShowRecargar(false)}
-        onSuccess={handleRecargarSuccess}
-      />
     </SafeAreaView>
   );
 }
 
-// ─── ESTILOS ──────────────────────────────────────────────────────────────────
+// ─── STYLES ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f4f6f9' },
@@ -429,35 +281,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a', padding: 24, margin: 16,
     borderRadius: 20, alignItems: 'center',
   },
-  balanceLabel: { color: '#94a3b8', fontSize: 13, fontWeight: '600', letterSpacing: 1 },
+  balanceLabel: { color: '#94a3b8', fontSize: 13, fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase' },
   balanceValue: { color: '#ffffff', fontSize: 34, fontWeight: 'bold', marginTop: 6 },
 
+  usdtBalanceRow: { marginTop: 12 },
   usdtPill: {
-    marginTop: 12, backgroundColor: '#1c3a2a', borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 6,
-    borderWidth: 1, borderColor: '#26d97f55',
+    backgroundColor: '#1c3a2a', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6,
+    borderWidth: 1, borderColor: '#26d97f33',
   },
   usdtPillText: { color: '#26d97f', fontWeight: '700', fontSize: 13 },
 
   buyUSDTBtn: {
-    flex: 1, backgroundColor: '#26d97f', borderRadius: 12,
-    paddingVertical: 14, alignItems: 'center',
+    marginTop: 16, backgroundColor: '#26d97f', borderRadius: 12,
+    paddingVertical: 12, paddingHorizontal: 24, width: '100%', alignItems: 'center',
   },
-  buyUSDTBtnText: { color: '#0f172a', fontWeight: '800', fontSize: 14 },
+  buyUSDTBtnText: { color: '#0f172a', fontWeight: '800', fontSize: 15 },
 
-  actionRow: {
-    flexDirection: 'row', gap: 10, marginTop: 16, width: '100%',
-  },
-  recargarBtn: {
-    flex: 1, backgroundColor: '#3b82f6', borderRadius: 12,
-    paddingVertical: 14, alignItems: 'center',
-  },
-  recargarBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 14 },
-
-  filterContainer: {
-    flexDirection: 'row', justifyContent: 'space-around',
-    marginHorizontal: 16, marginBottom: 12,
-  },
+  filterContainer: { flexDirection: 'row', justifyContent: 'space-around', marginHorizontal: 16, marginBottom: 12 },
   filterButton: {
     flex: 1, paddingVertical: 10, marginHorizontal: 4,
     backgroundColor: '#e2e8f0', borderRadius: 8, alignItems: 'center',
@@ -469,7 +309,7 @@ const styles = StyleSheet.create({
 
   listContainer: { paddingHorizontal: 16, paddingBottom: 20 },
   card: { backgroundColor: '#ffffff', padding: 16, borderRadius: 12, marginBottom: 10 },
-  usdtCard: { backgroundColor: '#f0fdf9', borderLeftWidth: 3, borderLeftColor: '#26d97f', borderRadius: 0 },
+  usdtCard: { backgroundColor: '#f0fdf9', borderLeftWidth: 3, borderLeftColor: '#26d97f' },
   usdtDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#26d97f' },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   accountText: { fontSize: 14, fontWeight: 'bold', color: '#1e293b' },
@@ -483,31 +323,30 @@ const styles = StyleSheet.create({
 
 const modal = StyleSheet.create({
   overlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 24, paddingBottom: 40,
+    backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 24, paddingBottom: 36,
   },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
   usdtBadge: {
-    width: 46, height: 46, borderRadius: 23,
-    backgroundColor: '#26d97f', alignItems: 'center', justifyContent: 'center',
+    width: 44, height: 44, borderRadius: 22, backgroundColor: '#26d97f',
+    alignItems: 'center', justifyContent: 'center',
   },
-  usdtBadgeText: { color: '#0f172a', fontWeight: '900', fontSize: 22 },
+  usdtBadgeText: { color: '#0f172a', fontWeight: '900', fontSize: 20 },
   title: { fontSize: 20, fontWeight: '800', color: '#0f172a' },
   subtitle: { fontSize: 12, color: '#64748b', marginTop: 2 },
   closeBtn: { padding: 8 },
-  closeBtnText: { fontSize: 20, color: '#94a3b8' },
+  closeBtnText: { fontSize: 18, color: '#94a3b8' },
 
   rateCard: {
     backgroundColor: '#f8fafc', borderRadius: 12, padding: 14,
     marginBottom: 16, flexDirection: 'row', alignItems: 'center',
     borderWidth: 1, borderColor: '#e2e8f0',
   },
-  rateLabel: { fontSize: 10, color: '#94a3b8', letterSpacing: 0.8 },
+  rateLabel: { fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 },
   rateValue: { fontSize: 17, fontWeight: '700', color: '#1e293b', marginTop: 2 },
   refreshBtn: {
     backgroundColor: '#e2e8f0', borderRadius: 8,
@@ -523,19 +362,20 @@ const modal = StyleSheet.create({
   balanceValue: { fontSize: 15, fontWeight: '700', color: '#0f172a' },
   dangerText: { color: '#ef4444' },
 
-  inputGroup: { marginBottom: 14 },
+  inputGroup: { marginBottom: 16 },
   inputLabel: { fontSize: 13, color: '#64748b', marginBottom: 8, fontWeight: '600' },
   inputRow: {
     flexDirection: 'row', alignItems: 'center',
     borderWidth: 1.5, borderColor: '#e2e8f0', borderRadius: 12,
     backgroundColor: '#f8fafc', paddingHorizontal: 14,
   },
-  currencyPrefix: { fontSize: 20, color: '#94a3b8', marginRight: 8 },
-  input: { flex: 1, fontSize: 22, fontWeight: '700', color: '#0f172a', paddingVertical: 14 },
+  currencyPrefix: { fontSize: 18, color: '#94a3b8', marginRight: 8 },
+  input: { flex: 1, fontSize: 20, fontWeight: '700', color: '#0f172a', paddingVertical: 14 },
 
   previewRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 12, backgroundColor: '#f0fdf4', borderRadius: 8, padding: 12,
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 12,
+    backgroundColor: '#f0fdf4', borderRadius: 8, padding: 12,
   },
   previewLabel: { fontSize: 13, color: '#16a34a' },
   previewValue: { fontSize: 15, fontWeight: '700', color: '#15803d' },
@@ -550,29 +390,6 @@ const modal = StyleSheet.create({
     backgroundColor: '#26d97f', borderRadius: 14,
     paddingVertical: 16, alignItems: 'center', marginTop: 4,
   },
-  buyBtnDisabled: { backgroundColor: '#a7f3d0' },
+  buyBtnLoading: { backgroundColor: '#86efac' },
   buyBtnText: { color: '#0f172a', fontWeight: '800', fontSize: 17 },
-});
-
-const recargar = StyleSheet.create({
-  quickRow: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16,
-  },
-  quickBtn: {
-    paddingHorizontal: 14, paddingVertical: 8,
-    backgroundColor: '#eff6ff', borderRadius: 20,
-    borderWidth: 1.5, borderColor: '#bfdbfe',
-  },
-  quickBtnActive: {
-    backgroundColor: '#3b82f6', borderColor: '#3b82f6',
-  },
-  quickBtnText: { fontSize: 13, fontWeight: '700', color: '#1d4ed8' },
-  quickBtnTextActive: { color: '#ffffff' },
-  hint: { fontSize: 11, color: '#ef4444', marginTop: 4 },
-  recargarBtn: {
-    backgroundColor: '#3b82f6', borderRadius: 14,
-    paddingVertical: 16, alignItems: 'center', marginTop: 4,
-  },
-  recargarBtnDisabled: { backgroundColor: '#93c5fd' },
-  recargarBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 17 },
 });
