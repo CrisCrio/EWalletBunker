@@ -1,5 +1,5 @@
 // Salimos de 'utils' con '../', entramos a 'src/Screens/' y cargamos el walletEngine
-const { generateTransactionHistory, calculateNetBalance, calcularPuntosADSO } = require('../src/Screens/walletEngine');
+const { generateTransactionHistory, calculateNetBalance, calcularPuntosADSO, generarMetasAhorro, transferirAMeta } = require('../src/Screens/walletEngine');
 describe('Pruebas Unitarias del Motor Financiero (WalletEngine)', () => {
   
   test('1. Si pido 50 transacciones, el array debe tener exactamente longitud 50', () => {
@@ -76,5 +76,47 @@ describe('Pruebas Unitarias del Motor Financiero (WalletEngine)', () => {
     ];
     // 200000*0.01 + 80000*0.01 = 2000 + 800 = 2800
     expect(calcularPuntosADSO(txs)).toBe(2800);
+  });
+
+  test('10. generarMetasAhorro devuelve exactamente 3 metas', () => {
+    const metas = generarMetasAhorro();
+    expect(metas.length).toBe(3);
+  });
+
+  test('11. Cada meta tiene id, nombre, meta y ahorrado definidos', () => {
+    const metas = generarMetasAhorro();
+    metas.forEach(m => {
+      expect(m.id).toBeDefined();
+      expect(m.nombre).toBeDefined();
+      expect(m.meta).toBeGreaterThan(0);
+      expect(m.ahorrado).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  test('12. transferirAMeta resta el monto correctamente del saldo disponible', () => {
+    const meta = { id: '1', nombre: 'Para la Moto', meta: 3000000, ahorrado: 0 };
+    const resultado = transferirAMeta(500000, meta, 200000);
+    expect(resultado.nuevoSaldo).toBe(300000);
+    expect(resultado.meta.ahorrado).toBe(200000);
+  });
+
+  test('13. El dinero no se duplica: saldo + meta.ahorrado = saldo original', () => {
+    const meta = { id: '1', nombre: 'Concierto', meta: 1000000, ahorrado: 0 };
+    const saldoOriginal = 500000;
+    const monto = 150000;
+    const resultado = transferirAMeta(saldoOriginal, meta, monto);
+    expect(resultado.nuevoSaldo + resultado.meta.ahorrado).toBe(saldoOriginal);
+  });
+
+  test('14. transferirAMeta retorna error si saldo insuficiente', () => {
+    const meta = { id: '1', nombre: 'Para la Moto', meta: 3000000, ahorrado: 0 };
+    const resultado = transferirAMeta(100000, meta, 200000);
+    expect(resultado.error).toBeDefined();
+  });
+
+  test('15. transferirAMeta retorna error si monto es 0 o negativo', () => {
+    const meta = { id: '1', nombre: 'Para la Moto', meta: 3000000, ahorrado: 0 };
+    const resultado = transferirAMeta(500000, meta, 0);
+    expect(resultado.error).toBeDefined();
   });
 });
