@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker/locale/es';
 
-// ─── HISTORIAL DE TRANSACCIONES ──────────────────────────────────────────────
+// ─── HISTORIAL DE TRANSACCIONES (Base + Aprendiz 2) ──────────────────────────
 
 export function generateTransactionHistory(count) {
   const transactions = [];
@@ -11,7 +11,7 @@ export function generateTransactionHistory(count) {
       faker.number.float({ min: 10000, max: 500000, fractionDigits: 2 })
     );
 
-    // ── CASHBACK: 1% si es Completado, monto > 50.000; 0 en cualquier otro caso ──
+    // Cashback: 1% si es Completado y monto > 50.000
     const puntosADSO =
       status === 'Completado' && amount > 50000
         ? parseFloat((amount * 0.01).toFixed(2))
@@ -30,7 +30,7 @@ export function generateTransactionHistory(count) {
   return transactions;
 }
 
-// ─── BALANCE NETO ─────────────────────────────────────────────────────────────
+// ─── BALANCE NETO (Base) ──────────────────────────────────────────────────────
 
 export function calculateNetBalance(transactions) {
   return transactions.reduce((balance, tx) => {
@@ -42,7 +42,7 @@ export function calculateNetBalance(transactions) {
   }, 0);
 }
 
-// ─── PUNTOS ADSO ACUMULADOS ───────────────────────────────────────────────────
+// ─── PUNTOS ADSO ACUMULADOS (Aprendiz 2) ──────────────────────────────────────
 
 export function calcularPuntosADSO(transactions) {
   return transactions.reduce((total, tx) => {
@@ -54,13 +54,13 @@ export function calcularPuntosADSO(transactions) {
   }, 0);
 }
 
-// ─── TASA DE CAMBIO ───────────────────────────────────────────────────────────
+// ─── TASA DE CAMBIO (Aprendiz 1) ──────────────────────────────────────────────
 
 export function generarTasaCambio() {
   return faker.number.float({ min: 3900, max: 4300, fractionDigits: 2 });
 }
 
-// ─── COMPRA USDT ──────────────────────────────────────────────────────────────
+// ─── COMPRA USDT (Aprendiz 1) ─────────────────────────────────────────────────
 
 export function comprarUSDT(saldoCOP, montoCOP) {
   if (typeof saldoCOP !== 'number' || typeof montoCOP !== 'number') {
@@ -85,9 +85,59 @@ export function comprarUSDT(saldoCOP, montoCOP) {
   };
 }
 
-// ─── CONVERSIÓN COP → USDT ────────────────────────────────────────────────────
+// ─── CONVERSIÓN COP → USDT (Aprendiz 1) ───────────────────────────────────────
 
 export function convertirCOPaUSDT(montoCOP, tasa) {
   if (!tasa || tasa <= 0) return 0;
   return parseFloat((montoCOP / tasa).toFixed(6));
+}
+
+// ─── PIGGY BANK / METAS (Aprendiz 3) ──────────────────────────────────────────
+
+export function generarMetasAhorro() {
+  return [1, 2, 3].map(() => ({
+    id: faker.string.uuid(),
+    nombre: faker.finance.accountName(),
+    meta: parseFloat(faker.number.float({ min: 500000, max: 5000000, fractionDigits: 0 })),
+    ahorrado: parseFloat(faker.number.float({ min: 0, max: 499999, fractionDigits: 0 })),
+  }));
+}
+
+export function transferirAMeta(saldoDisponible, meta, monto) {
+  if (monto <= 0) {
+    return { error: 'El monto debe ser mayor a 0' };
+  }
+  if (monto > saldoDisponible) {
+    return { error: 'Saldo insuficiente para realizar la transferencia' };
+  }
+  return {
+    nuevoSaldo: parseFloat((saldoDisponible - monto).toFixed(2)),
+    meta: { ...meta, ahorrado: parseFloat((meta.ahorrado + monto).toFixed(2)) },
+  };
+}
+
+// ─── BUDGETING / ALERTAS CRÍTICAS (Aprendiz 4) ────────────────────────────────
+
+export function clasificarGasto(transactions) {
+  const completadas = transactions.filter(tx => tx.status === 'Completado');
+  const totalIngresos = completadas
+    .filter(tx => tx.type === 'Ingreso')
+    .reduce((sum, tx) => sum + tx.amount, 0);
+  const totalRetiros = completadas
+    .filter(tx => tx.type === 'Retiro')
+    .reduce((sum, tx) => sum + tx.amount, 0);
+
+  if (totalIngresos === 0) return 'Gasto Crítico';
+  
+  const porcentaje = (totalRetiros / totalIngresos) * 100;
+  return porcentaje >= 70 ? 'Gasto Crítico' : 'Estable';
+}
+
+export function generarDatosCriticos() {
+  return [
+    { type: 'Ingreso', amount: 500000, status: 'Completado' },
+    { type: 'Retiro',  amount: 300000, status: 'Completado' },
+    { type: 'Retiro',  amount: 200000, status: 'Completado' },
+    { type: 'Retiro',  amount: 100000, status: 'Completado' },
+  ];
 }
